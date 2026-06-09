@@ -26,6 +26,7 @@ from sklearn.metrics import (  # noqa: E402
     roc_auc_score,
     roc_curve,
 )
+from sklearn.decomposition import PCA  # noqa: E402
 from sklearn.model_selection import train_test_split  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -112,6 +113,55 @@ def plot_confusion(
     fig, ax = plt.subplots(figsize=(5, 4.5))
     disp.plot(ax=ax, colorbar=False, cmap="Blues", values_format="d")
     ax.set_title(title)
+    return _finish(fig, out_path)
+
+
+def reproduce_unsupervised_projection(task: Any, events: Sequence[Any], result: Any):
+    """Return ``(labels, projection_2d)`` consistent with the Runtime's clustering.
+
+    Uses the Runtime's exact cluster assignments (from the persisted payload) and
+    re-applies the same normalization (``task.scaler``, mirroring
+    ``taskwright.runtime.runner._normalize``) before a 2D PCA, so the scatter shows
+    precisely what the Runtime clustered / scored.
+    """
+    X = task.build_features(events)
+    payload = joblib.load(result.artifact_path)
+    labels = np.asarray(payload["labels"])
+
+    scaler_factory = getattr(task, "scaler", None)
+    if scaler_factory is None:
+        X_norm = X.to_numpy()
+    else:
+        scaler = scaler_factory() if isinstance(scaler_factory, type) else scaler_factory
+        X_norm = scaler.fit_transform(X)
+
+    projection = PCA(n_components=2, random_state=RANDOM_STATE).fit_transform(X_norm)
+    return labels, projection
+
+
+def save_unsupervised_material(run_dir: Path, labels, projection) -> Path:
+    """Co-locate cluster assignments + 2D projection next to the run's joblib payload."""
+    path = Path(run_dir) / "graph_material_unsupervised.npz"
+    np.savez(path, labels=np.asarray(labels), projection=np.asarray(projection))
+    return path
+
+
+def plot_clusters_2d(
+    projection, labels, title: str, out_path: Path, xlabel: str = "PC1", ylabel: str = "PC2"
+) -> Path:
+    projection = np.asarray(projection)
+    labels = np.asarray(labels)
+    fig, ax = plt.subplots(figsize=(6, 5))
+    for c in sorted(set(labels.tolist())):
+        mask = labels == c
+        ax.scatter(
+            projection[mask, 0], projection[mask, 1], s=5, alpha=0.35,
+            label=f"cluster {c} (n={int(mask.sum())})",
+        )
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.legend(loc="best", markerscale=2, framealpha=0.9)
     return _finish(fig, out_path)
 
 
