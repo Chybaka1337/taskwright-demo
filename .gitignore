@@ -5,6 +5,7 @@ runs/
 # Local-only files (kept out of the repo per CLAUDE.md)
 CLAUDE.md
 .DS_Store
+.claude/
 
 # Python
 __pycache__/
