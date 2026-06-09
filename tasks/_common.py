@@ -165,6 +165,23 @@ def plot_clusters_2d(
     return _finish(fig, out_path)
 
 
+def plot_retention_curves(curves: dict, title: str, out_path: Path) -> Path:
+    """Plot one or more day-N retention curves (label -> pandas Series indexed by day)."""
+    fig, ax = plt.subplots(figsize=(6.5, 4.5))
+    for label, series in curves.items():
+        ax.plot(
+            series.index.to_numpy(), series.to_numpy(),
+            marker="o", ms=3, lw=1.5, label=label,
+        )
+    ax.set_xlabel("days since first appearance")
+    ax.set_ylabel("retention (share of eligible players)")
+    ax.set_ylim(0, 1.02)
+    ax.set_title(title)
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc="best")
+    return _finish(fig, out_path)
+
+
 def _finish(fig, out_path: Path) -> Path:
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
